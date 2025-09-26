@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Local Finder — Mobile Optimized</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600&display=swap" rel="stylesheet">
+
+  <!-- Google Maps JS -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA8DAzdj9Gty6gM1OSJf6_niIXHKndjizU&libraries=places"></script>
+
+  <style>
+    :root{
+      --bg: #f8f9fa;
+      --brand: #284b63;
+      --muted-border: #dee2e6;
+      --card-bg: #ffffff;
+      --left-width: 380px;
+      --header-height: 60px;
+      --header-top-gap: 10px;
+      --searchcard-gap: 8px;
+      --filter-gap: 8px;
+    }
+    * { box-sizing: border-box; }
+    html,body {
+      height:100%;
+      margin:0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--bg);
+      -webkit-font-smoothing:antialiased;
+      color: #20323a;
+    }
+
+    /* Fix for autocomplete dropdown z-index */
+    .pac-container {
+      z-index: 1300 !important;
+    }
+
+    /* Header */
+    header {
+      width: 98%;
+      height: var(--header-height);
+      margin: 0 auto;
+      border: 4px solid var(--muted-border);
+      border-radius: 18px;
+      background: var(--card-bg);
+      position: fixed;
+      top: var(--header-top-gap);
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 1200;
+      transition: top .34s ease;
+    }
+    header.hidden { top: calc(-1 * (var(--header-height) + 24px)); }
+
+    .header-left { position:absolute; left:18px; top:50%; transform:translateY(-50%); display:flex; gap:8px; align-items:center; z-index:1300; }
+    .menu-btn{ width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background: rgba(255,255,255,0.6); border:2px solid transparent; cursor:pointer; }
+    .menu-icon{ width:20px; height:14px; position:relative; display:block; }
+    .menu-icon::before, .menu-icon::after, .menu-icon span{ content:""; position:absolute; left:0; right:0; height:2px; background:var(--brand); border-radius:2px; }
+    .menu-icon::before{ top:0 } .menu-icon span{ top:6px } .menu-icon::after{ bottom:0 }
+
+    .logo { height:34px; user-select:none; pointer-events:none; z-index:1200; font-weight:600; color:var(--brand); }
+
+    .header-right { position:absolute; right:18px; top:50%; transform:translateY(-50%); display:flex; gap:8px; align-items:center; z-index:1300; }
+    .search-btn{ width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background: rgba(255,255,255,0.6); border:2px solid transparent; cursor:pointer; }
+
+    /* Dropdown */
+    .dropdown { position:absolute; left:18px; top:calc(var(--header-top-gap) + var(--header-height) + 8px); min-width:200px; background:#fff; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,0.08); border:1px solid rgba(0,0,0,0.06); transform-origin:top left; transform:scale(.98); opacity:0; pointer-events:none; transition:all .14s ease; z-index:1250; }
+    .dropdown.open{ transform:scale(1); opacity:1; pointer-events:auto; }
+    .dropdown ul{ margin:0; padding:8px 0; list-style:none; }
+    .dropdown li{ padding:10px 14px; cursor:pointer; color:#2b3a3f; display:flex; gap:8px; align-items:center; }
+
+    /* Search card */
+    .search-card {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      top: calc(var(--header-top-gap) + var(--header-height) + 8px);
+      width: min(980px, calc(98% - 24px));
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(20,30,40,0.12);
+      border: 1px solid rgba(0,0,0,0.06);
+      padding: 18px;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .16s ease, opacity .16s ease;
+      z-index: 1190;
+    }
+    .search-card.open { opacity:1; pointer-events:auto; transform: translateX(-50%) translateY(0); }
+
+    .search-row { display:grid; grid-template-columns: 1fr 180px; gap:12px; align-items:center; }
+    .search-input input[type="search"] { width:100%; padding:14px 14px; border-radius:10px; border:1px solid var(--muted-border); font-size:16px; }
+    .search-actions .btn { width:100%; padding:12px 14px; font-size:15px; background: var(--brand); color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+    .options { margin-top:12px; display:grid; grid-template-columns: repeat(4,1fr); gap:10px; }
+    .field { display:flex; flex-direction:column; gap:8px; }
+    label { font-size:13px; color:#4b5960; }
+    select, input[type="text"], input[type="number"] { padding:10px 12px; border-radius:8px; border:1px solid var(--muted-border); font-size:14px; background:#fff; }
+
+    /* Filter bar */
+    .filter-bar {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(980px, calc(98% - 24px));
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      z-index:1180;
+      border-radius:10px;
+      transition: opacity .16s ease, transform .16s ease;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 6px 18px rgba(20,30,40,0.06);
+      opacity: 0;
+      visibility: hidden;
+    }
+    .filter-bar.show { opacity:1; visibility:visible; }
+    .filter-tab {
+      padding:8px 12px; border-radius:999px; background:#fff; border:1px solid rgba(0,0,0,0.06); cursor:pointer; display:inline-flex; gap:8px; align-items:center; font-size:14px;
+      transition: all 0.2s ease;
+    }
+    .filter-tab:hover {
+      background: #f0f4ff;
+    }
+    .filter-tab.active { background: var(--brand); border-color: var(--brand); color: white; font-weight:600; }
+    .filter-count { font-size:13px; color:inherit; opacity: 0.8; }
+
+    /* App main - MODIFIED FOR MOBILE */
+    .app {
+      position: fixed;
+      top: calc(var(--header-top-gap) + var(--header-height) + 20px);
+      bottom: 0;
+      left: 1%;
+      right: 1%;
+      transition: top 0.3s ease;
+    }
+
+    /* Mobile view toggle button */
+    .view-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1001;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .view-toggle:hover {
+      transform: scale(1.05);
+      background: #1a3a4f;
+    }
+
+    /* Panel containers - MODIFIED FOR MOBILE */
+    .panel-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: transform 0.3s ease;
+    }
+
+    .list-panel {
+      transform: translateX(0);
+      z-index: 1;
+    }
+
+    .map-panel {
+      transform: translateX(100%);
+      z-index: 2;
+    }
+
+    .list-panel.hidden {
+      transform: translateX(-100%);
+    }
+
+    .map-panel.active {
+      transform: translateX(0);
+    }
+
+    /* Left panel styles */
+    .left-panel {
+      width: 100%;
+      height: 100%;
+      background:#fff;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 6px 18px rgba(20,30,40,0.06);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .left-header { padding:14px; border-bottom:1px solid rgba(0,0,0,0.04); display:flex; align-items:center; justify-content:space-between; }
+    .left-header h2 { margin:0; font-size:18px; color:var(--brand); }
+    .left-list { overflow:auto; padding:12px; flex: 1; }
+    .place-item { padding:12px; border-radius:10px; margin-bottom:10px; background:#fff; border:1px solid transparent; transition:all .12s ease; cursor: pointer; }
+    .place-item:hover { transform: translateY(-3px); background:#fbfdff; border-color:rgba(40,75,99,0.05); }
+    .place-item.active { background:#eef7fb; border-color:rgba(40,75,99,0.1); }
+    .place-title { font-weight:600; font-size:15px; color:#23343a; }
+    .place-sub { color:#54636a; font-size:13px; margin-top:6px; }
+
+    .actions { margin-top:8px; display:flex; gap:6px; flex-wrap: wrap; }
+    .action-btn {
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:600;
+      background:var(--brand);
+      color:#fff;
+      font-size:12px;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      justify-content: center;
+      min-width: 0;
+    }
+    .action-btn:hover { background: #1a3a4f; }
+    .action-btn.saved { background: #4a7a9a; }
+    .action-btn svg { width: 14px; height: 14px; }
+
+    /* Right panel styles */
+    .right-panel {
+      width: 100%;
+      height: 100%;
+      display:flex;
+      flex-direction:column;
+      position: relative;
+      border-radius:12px;
+      overflow: hidden;
+    }
+    #map {
+      flex:1;
+      min-height:0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Current location button */
+    .current-location-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .current-location-btn:hover {
+      background: #f0f0f0;
+    }
+    .current-location-btn:active {
+      background: #e0e0e0;
+    }
+
+    /* small live status chip near map */
+    .loc-status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.96);
+      border-radius: 10px;
+      padding: 8px 10px;
+      box-shadow: 0 6px 18px rgba(20,30,40,0.06);
+      font-size: 13px;
+      color: #20323a;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      min-width: 160px;
+    }
+    .loc-status .dot { width:10px; height:10px; border-radius:50%; background:#f0ad4e; display:inline-block; }
+    .loc-status.good .dot { background: #2a9d8f; }
+    .loc-status.bad .dot { background: #e5484d; }
+
+    /* Loading indicator */
+    .loading { display: none; text-align: center; padding: 20px; color: var(--brand); }
+    .loading.active { display: block; }
+
+    /* Status message */
+    .status-message { padding: 10px; text-align: center; color: #666; font-size: 14px; }
+
+    /* Desktop styles - show both panels side by side */
+    @media (min-width: 901px) {
+      .view-toggle {
+        display: none;
+      }
+      
+      .app {
+        display: flex;
+        gap: 18px;
+      }
+      
+      .panel-container {
+        position: relative;
+        transform: none !important;
+      }
+      
+      .list-panel {
+        width: var(--left-width);
+        flex-shrink: 0;
+      }
+      
+      .map-panel {
+        flex: 1;
+        min-width: 200px;
+      }
+      
+      .list-panel.hidden,
+      .map-panel.active {
+        transform: none !important;
+      }
+    }
+
+    /* small screens */
+    @media (max-width:900px){
+      .app {
+        top: calc(var(--header-top-gap) + var(--header-height) + 12px);
+      }
+      .search-row { grid-template-columns: 1fr 140px; }
+      .search-card { width: calc(98% - 20px); left:50%; transform:translateX(-50%); top:calc(var(--header-top-gap) + var(--header-height) + 8px); }
+      .filter-bar { width: calc(98% - 20px); left:50%; transform:translateX(-50%); flex-wrap: wrap; justify-content: center; }
+      .options { grid-template-columns: 1fr 1fr; }
+      .loc-status { left: 12px; top: 62px; }
+    }
+
+    @media (max-width: 600px) {
+      .options { grid-template-columns: 1fr; }
+      .actions { flex-direction: column; }
+      .action-btn { justify-content: flex-start; }
+    }
+
+    /* Bookmark & Settings modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(0,0,0,0.45);
+      z-index: 1400;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      width: min(720px, 96%);
+      max-height: 80vh;
+      background:white;
+      border-radius: 12px;
+      padding: 16px;
+      overflow:auto;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+    }
+    .modal h3 { margin:0 0 8px 0; color:var(--brand); }
+    .modal .modal-actions { display:flex; gap:8px; margin-top:12px; }
+
+    .bookmark-item { padding:10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .bookmark-item .meta { display:flex; gap:8px; align-items:center; }
+    .small-btn { padding:6px 8px; border-radius:8px; border:none; cursor:pointer; background:#eee; }
+    .small-btn.danger { background:#fbeaea; color:#a33; }
+
+    /* notification */
+    .copy-notification { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 2000; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header id="appHeader">
+    <div class="header-left">
+      <button class="menu-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" title="Menu">
+        <span class="menu-icon"><span></span></span>
+      </button>
+      <nav id="menuDropdown" class="dropdown" role="menu" aria-hidden="true">
+        <ul>
+          <li id="settingsItem" role="menuitem" tabindex="0">⚙️ Settings</li>
+          <li id="bookmarkItem" role="menuitem" tabindex="0">🔖 Bookmarks</li>
+        </ul>
+      </nav>
+    </div>
+
+    <div class="logo">Local Finder</div>
+
+    <div class="header-right">
+      <button class="search-btn" id="searchBtn" aria-expanded="false" title="Advanced Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 21l-4.35-4.35" stroke="#284b63" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="11" cy="11" r="6" stroke="#284b63" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Search card -->
+  <div id="searchCard" class="search-card" aria-hidden="true">
+    <form id="searchForm" onsubmit="return false;">
+      <div class="search-row">
+        <div class="search-input">
+          <input type="search" id="q" placeholder="Enter a location or use current location" aria-label="Search" />
+        </div>
+        <div class="search-actions">
+          <button type="button" class="btn" id="doSearchBtn">Search</button>
+        </div>
+      </div>
+
+      <div class="options">
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country">
+            <option value="">Any Country</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="state">State</label>
+          <select id="state">
+            <option value="">Any State</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="city">City</label>
+          <input id="city" type="text" placeholder="Optional city" />
+        </div>
+        <div class="field">
+          <label>Range (km)</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <label style="font-size:13px;"><input type="radio" name="range" value="5" /> 5</label>
+            <label style="font-size:13px;"><input type="radio" name="range" value="10" checked /> 10</label>
+            <label style="font-size:13px;"><input type="radio" name="range" value="15" /> 15</label>
+            <label style="font-size:13px;"><input type="radio" name="range" value="20" /> 20</label>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Filter bar -->
+  <div id="filterBar" class="filter-bar" aria-hidden="true"></div>
+
+  <!-- MODIFIED: Single container with toggle between list and map -->
+  <main class="app" id="appMain" role="main" aria-label="Results and Map">
+    <div class="panel-container list-panel" id="listPanel">
+      <aside class="left-panel" aria-label="Results list">
+        <div class="left-header">
+          <h2>Results</h2>
+          <div id="resultsCount">0</div>
+        </div>
+        <div class="loading" id="loadingIndicator">Searching for places...</div>
+        <div class="left-list" id="placesList" role="list">
+          <div class="status-message">Enter a location to search for nearby places</div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="panel-container map-panel" id="mapPanel">
+      <section class="right-panel" aria-label="Map area">
+        <div class="loc-status" id="locStatus" aria-hidden="true" style="display:none;">
+          <span class="dot"></span>
+          <div style="display:flex;flex-direction:column;">
+            <div id="locStatusLine">Idle</div>
+            <div style="font-size:12px;color:#666" id="locStatusSub">Tap the location button to start</div>
+          </div>
+        </div>
+
+        <button class="current-location-btn" id="currentLocationBtn" title="Use current location" aria-label="Use current location">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" fill="#284b63"/>
+          </svg>
+        </button>
+        <div id="map"></div>
+      </section>
+    </div>
+
+    <!-- View toggle button for mobile -->
+    <button class="view-toggle" id="viewToggle" title="Switch View">
+      <span id="toggleIcon">🗺️</span>
+    </button>
+  </main>
+
+  <!-- Bookmarks modal -->
+  <div id="bookmarksModal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" role="document" aria-label="Bookmarks">
+      <h3>Bookmarks</h3>
+      <div id="bookmarksList" style="margin-top:8px;"></div>
+      <div class="modal-actions" style="margin-top:8px;">
+        <button id="closeBookmarks" class="small-btn">Close</button>
+        <button id="clearBookmarks" class="small-btn danger">Clear all</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" role="document" aria-label="Settings">
+      <h3>Settings</h3>
+      <div style="margin-top:8px;">
+        <p style="margin:0 0 8px 0;">Location sampling & accuracy settings:</p>
+
+        <label style="display:block; gap:6px; margin-bottom:8px;">
+          Desired accuracy (meters)
+          <input id="settingDesiredAccuracy" type="number" min="1" step="1" value="20" />
+          <small style="color:#666">Target accuracy to stop early (lower = stricter). Works best on phones with GPS.</small>
+        </label>
+
+        <label style="display:block; gap:6px; margin-bottom:8px;">
+          Samples to collect
+          <input id="settingSamples" type="number" min="1" step="1" value="6" />
+          <small style="color:#666">Number of samples to collect before choosing the best one.</small>
+        </label>
+
+        <label style="display:block; gap:6px; margin-bottom:8px;">
+          Max wait (ms)
+          <input id="settingMaxWait" type="number" min="1000" step="500" value="15000" />
+          <small style="color:#666">If this time passes, the best available sample is used.</small>
+        </label>
+
+        <label style="display:block; gap:6px; margin-bottom:8px;">
+          <input type="checkbox" id="showUserCircle" checked /> Show accuracy circle for current location
+        </label>
+
+        <small style="color:#666">More settings can be added (units, default travel mode, etc.).</small>
+      </div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button id="saveSettings" class="small-btn">Save</button>
+        <button id="closeSettings" class="small-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // Elements
+    const menuBtn = document.getElementById('menuBtn');
+    const dropdown = document.getElementById('menuDropdown');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchCard = document.getElementById('searchCard');
+    const qInput = document.getElementById('q');
+    const doSearchBtn = document.getElementById('doSearchBtn');
+    const placesListEl = document.getElementById('placesList');
+    const resultsCountEl = document.getElementById('resultsCount');
+    const filterBar = document.getElementById('filterBar');
+    const headerEl = document.getElementById('appHeader');
+    const appMain = document.getElementById('appMain');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const currentLocationBtn = document.getElementById('currentLocationBtn');
+    const countrySelect = document.getElementById('country');
+    const stateSelect = document.getElementById('state');
+    const viewToggle = document.getElementById('viewToggle');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const listPanel = document.getElementById('listPanel');
+    const mapPanel = document.getElementById('mapPanel');
+
+    const settingsItem = document.getElementById('settingsItem');
+    const bookmarkItem = document.getElementById('bookmarkItem');
+    const bookmarksModal = document.getElementById('bookmarksModal');
+    const bookmarksList = document.getElementById('bookmarksList');
+    const closeBookmarks = document.getElementById('closeBookmarks');
+    const clearBookmarks = document.getElementById('clearBookmarks');
+
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettings = document.getElementById('closeSettings');
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    const showUserCircleCheckbox = document.getElementById('showUserCircle');
+
+    const settingDesiredAccuracy = document.getElementById('settingDesiredAccuracy');
+    const settingSamples = document.getElementById('settingSamples');
+    const settingMaxWait = document.getElementById('settingMaxWait');
+
+    const locStatus = document.getElementById('locStatus');
+    const locStatusLine = document.getElementById('locStatusLine');
+    const locStatusSub = document.getElementById('locStatusSub');
+
+    // Categories
+    const TYPES = [
+      { key: 'hospital', label: 'Hospital' },
+      { key: 'gas_station', label: 'Petrol Pump' },
+      { key: 'pharmacy', label: 'Pharmacy' },
+      { key: 'grocery_or_supermarket', label: 'Grocery' },
+      { key: 'police', label: 'Police' },
+    ];
+
+    // state
+    let map, placesService, infoWindow, geocoder;
+    let markers = [];
+    let aggregatedResults = [];
+    let currentCenter = null;
+    let saved = [];
+    const STORAGE_KEY = 'lf_saved_v_fixed_v1';
+    let menuOpen=false, searchOpen=false;
+    let lastScroll = 0;
+    let currentFilter = 'All';
+    let isMapView = false; // Track current view state
+
+    // user location marker & circle
+    let userMarker = null;
+    let userCircle = null;
+
+    // live sampling state so we can cancel if needed later
+    let samplingState = { watchId: null, timerId: null, active: false };
+
+    // helpers
+    const esc = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function loadSaved(){ try{ saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }catch(e){ saved = []; } }
+    function persistSaved(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); }
+    function isSaved(id){ return saved.some(x=>x.id===id); }
+    function toggleSaved(obj){ const i = saved.findIndex(x=>x.id===obj.id); if(i>=0) saved.splice(i,1); else saved.push(obj); persistSaved(); }
+
+    // Toggle between list and map views
+    function toggleView() {
+      isMapView = !isMapView;
+      
+      if (isMapView) {
+        // Show map, hide list
+        listPanel.classList.add('hidden');
+        mapPanel.classList.add('active');
+        toggleIcon.textContent = '📋';
+        viewToggle.setAttribute('title', 'Switch to List View');
+        
+        // Trigger map resize to ensure proper rendering
+        setTimeout(() => {
+          if (map) {
+            google.maps.event.trigger(map, 'resize');
+          }
+        }, 300);
+      } else {
+        // Show list, hide map
+        listPanel.classList.remove('hidden');
+        mapPanel.classList.remove('active');
+        toggleIcon.textContent = '🗺️';
+        viewToggle.setAttribute('title', 'Switch to Map View');
+      }
+    }
+
+    // Copy coordinates function
+    function copyCoordinates(lat, lng) {
+      const coords = `${lat},${lng}`;
+      navigator.clipboard.writeText(coords).then(() => {
+        showNotification('Coordinates copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy coordinates: ', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = coords;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showNotification('Coordinates copied to clipboard!');
+        } catch (err) {
+          showNotification('Failed to copy coordinates');
+        }
+        document.body.removeChild(textArea);
+      });
+    }
+
+    // Show notification function
+    function showNotification(message) {
+      const existingNotification = document.querySelector('.copy-notification');
+      if (existingNotification) {
+        existingNotification.remove();
+      }
+      const notification = document.createElement('div');
+      notification.className = 'copy-notification';
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        notification.remove();
+      }, 2000);
+    }
+
+    // header/menu/search control
+    menuBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if(menuOpen){ dropdown.classList.remove('open'); dropdown.setAttribute('aria-hidden','true'); menuOpen=false; menuBtn.setAttribute('aria-expanded','false'); }
+      else { dropdown.classList.add('open'); dropdown.setAttribute('aria-hidden','false'); menuOpen=true; menuBtn.setAttribute('aria-expanded','true'); }
+    });
+    window.addEventListener('click', e => {
+      if(menuOpen && !dropdown.contains(e.target) && !menuBtn.contains(e.target)){ dropdown.classList.remove('open'); dropdown.setAttribute('aria-hidden','true'); menuOpen=false; menuBtn.setAttribute('aria-expanded','false'); }
+      if(searchOpen && !searchCard.contains(e.target) && !searchBtn.contains(e.target) && !qInput.contains(e.target)){ closeSearchCard(); }
+    });
+
+    function openSearchCard(){
+      searchCard.classList.add('open'); searchCard.setAttribute('aria-hidden','false'); searchOpen=true;
+      qInput.focus();
+      positionFilterBar();
+      adjustAppTopSpacing();
+    }
+    function closeSearchCard(){
+      searchCard.classList.remove('open'); searchCard.setAttribute('aria-hidden','true'); searchOpen=false;
+      positionFilterBar();
+      adjustAppTopSpacing();
+    }
+    searchBtn.addEventListener('click', e => { e.stopPropagation(); if(searchOpen) closeSearchCard(); else openSearchCard(); });
+
+    window.addEventListener('keydown', e => { if(e.key === 'Escape'){ if(menuOpen){ dropdown.classList.remove('open'); menuOpen=false; menuBtn.setAttribute('aria-expanded','false'); } if(searchOpen) closeSearchCard(); closeBookmarksModal(); closeSettingsModal(); } });
+
+    // View toggle button
+    viewToggle.addEventListener('click', toggleView);
+
+    // -------------------
+    // Enhanced location sampler
+    // -------------------
+    // Read settings from UI (fallback to defaults)
+    function readLocationSettings() {
+      const desiredAccuracy = Math.max(1, Number(settingDesiredAccuracy.value || 20));
+      const samples = Math.max(1, parseInt(settingSamples.value || 6, 10));
+      const maxWaitMs = Math.max(1000, parseInt(settingMaxWait.value || 15000, 10));
+      return { desiredAccuracy, samples, maxWaitMs };
+    }
+
+    // update locStatus UI
+    function showLocStatus(show, bestAccuracy, collected, samplesTarget, stateText){
+      if(!locStatus) return;
+      if(show) locStatus.style.display = 'flex';
+      else locStatus.style.display = 'none';
+      const dot = locStatus.classList;
+      if(typeof bestAccuracy === 'number'){
+        if(bestAccuracy <= 25) { locStatus.classList.add('good'); locStatus.classList.remove('bad'); }
+        else if(bestAccuracy <= 100) { locStatus.classList.remove('good'); locStatus.classList.remove('bad'); }
+        else { locStatus.classList.add('bad'); locStatus.classList.remove('good'); }
+        locStatusLine.textContent = `Best: ${Math.round(bestAccuracy)} m`;
+      } else {
+        locStatusLine.textContent = stateText || 'Waiting...';
+      }
+      if(typeof collected === 'number' && typeof samplesTarget === 'number'){
+        locStatusSub.textContent = `${collected} / ${samplesTarget} samples — ${stateText || ''}`;
+      } else {
+        locStatusSub.textContent = stateText || '';
+      }
+    }
+
+    // getCurrentLocation: uses watchPosition, collects multiple samples, chooses best
+    function getCurrentLocationEnhanced(options = {}) {
+      // options: { samples, maxWaitMs, desiredAccuracy, onSample }
+      const samples = options.samples || 6;
+      const maxWaitMs = options.maxWaitMs || 15000;
+      const desiredAccuracy = options.desiredAccuracy || 20;
+      const onSample = typeof options.onSample === 'function' ? options.onSample : null;
+
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation is not supported by your browser.'));
+          return;
+        }
+
+        // reset any previous sampling
+        if(samplingState.active && samplingState.watchId !== null){
+          try { navigator.geolocation.clearWatch(samplingState.watchId); } catch(e){}
+        }
+        samplingState = { watchId: null, timerId: null, active: true };
+
+        const readings = [];
+        let finished = false;
+
+        function finish(err, val){
+          if(finished) return;
+          finished = true;
+          samplingState.active = false;
+          if(samplingState.watchId !== null){
+            try { navigator.geolocation.clearWatch(samplingState.watchId); } catch(e){}
+            samplingState.watchId = null;
+          }
+          if(samplingState.timerId !== null){
+            clearTimeout(samplingState.timerId);
+            samplingState.timerId = null;
+          }
+          if(err) reject(err);
+          else resolve(val);
+        }
+
+        // safety timer: after maxWaitMs choose best available or fail
+        samplingState.timerId = setTimeout(() => {
+          if(readings.length){
+            const best = readings.slice().sort((a,b)=>a.coords.accuracy - b.coords.accuracy)[0];
+            finish(null, { lat: best.coords.latitude, lng: best.coords.longitude, accuracy: best.coords.accuracy, timestamp: best.timestamp });
+          } else {
+            finish(new Error('Timed out while trying to get a location fix. Try again or check device settings.'));
+          }
+        }, maxWaitMs);
+
+        // start watchPosition
+        try {
+          samplingState.watchId = navigator.geolocation.watchPosition(pos => {
+            // push reading
+            readings.push(pos);
+            readings.sort((a,b) => a.coords.accuracy - b.coords.accuracy);
+
+            // call live callback
+            if(onSample) {
+              const bestAcc = readings[0] && readings[0].coords && typeof readings[0].coords.accuracy === 'number' ? readings[0].coords.accuracy : null;
+              onSample({
+                latest: pos,
+                bestAccuracy: bestAcc,
+                collected: readings.length,
+                target: samples
+              });
+            } else {
+              // update UI default
+              const bestAcc = readings[0] && readings[0].coords && typeof readings[0].coords.accuracy === 'number' ? readings[0].coords.accuracy : null;
+              showLocStatus(true, bestAcc, readings.length, samples, 'Collecting...');
+            }
+
+            // if any reading meets desiredAccuracy, finish immediately with that best reading
+            if(pos.coords && typeof pos.coords.accuracy === 'number' && pos.coords.accuracy <= desiredAccuracy){
+              finish(null, { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: pos.timestamp });
+              return;
+            }
+
+            // if reached required number of samples, pick best (already sorted)
+            if(readings.length >= samples){
+              const best = readings[0];
+              finish(null, { lat: best.coords.latitude, lng: best.coords.longitude, accuracy: best.coords.accuracy, timestamp: best.timestamp });
+              return;
+            }
+
+            // otherwise continue collecting until timer
+          }, err => {
+            // geolocation error
+            finish(new Error(err.message || 'Failed to get location.'));
+          }, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: Math.min(5000, maxWaitMs)
+          });
+        } catch (e){
+          finish(new Error('Geolocation watch failed: ' + (e && e.message ? e.message : e)));
+        }
+      });
+    }
+
+    // Show user marker + accuracy circle (improved)
+    function showUserLocationMarker(center){
+      if(!map) return;
+      if(userMarker) userMarker.setMap(null);
+      if(userCircle) userCircle.setMap(null);
+
+      userMarker = new google.maps.Marker({
+        position: {lat: center.lat, lng: center.lng},
+        map,
+        title: center.accuracy ? `You are here (±${Math.round(center.accuracy)} m)` : 'You are here',
+        zIndex: 999,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#2a79d4',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2
+        }
+      });
+
+      if(showUserCircleCheckbox.checked && center.accuracy){
+        const radius = Math.max(8, center.accuracy);
+        userCircle = new google.maps.Circle({
+          strokeColor: '#2a79d4',
+          strokeOpacity: 0.18,
+          strokeWeight: 1,
+          fillColor: '#2a79d4',
+          fillOpacity: 0.06,
+          map,
+          center: {lat: center.lat, lng: center.lng},
+          radius: radius
+        });
+      }
+    }
+
+    // Wire enhanced currentLocationBtn handler
+    currentLocationBtn.addEventListener('click', async () => {
+      try {
+        loadingIndicator.classList.add('active');
+        placesListEl.innerHTML = '<div class="status-message">Getting your current location (high-accuracy)...</div>';
+        locStatus.style.display = 'flex';
+        locStatusLine.textContent = 'Starting...';
+        locStatusSub.textContent = 'Requesting permission';
+
+        // read settings
+        const settings = readLocationSettings();
+
+        // live onSample callback to update UI
+        const onSample = ({ latest, bestAccuracy, collected, target }) => {
+          showLocStatus(true, bestAccuracy, collected, target, 'Collecting...');
+        };
+
+        // run enhanced sampler
+        const pos = await getCurrentLocationEnhanced({
+          samples: settings.samples,
+          maxWaitMs: settings.maxWaitMs,
+          desiredAccuracy: settings.desiredAccuracy,
+          onSample
+        });
+
+        // success - update UI marker and search
+        qInput.value = 'Current Location';
+        showUserLocationMarker({ lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
+
+        // perform nearby search and update selects
+        await performNearbyAt({ lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
+        updateLocationDetails({ lat: pos.lat, lng: pos.lng });
+
+        // show status briefly
+        showLocStatus(true, pos.accuracy, settings.samples, settings.samples, 'Done');
+        placesListEl.innerHTML = `<div class="status-message">Location accuracy: ${Math.round(pos.accuracy)} m</div>`;
+        setTimeout(()=> { showLocStatus(false); }, 2200);
+      } catch (error) {
+        console.error(error);
+        placesListEl.innerHTML = '<div class="status-message">' + esc(error.message) + '</div>';
+        showLocStatus(false);
+        alert('Error: ' + error.message);
+      } finally {
+        loadingIndicator.classList.remove('active');
+      }
+    });
+
+    // Update country and state based on coordinates
+    function updateLocationDetails(location) {
+      if (!geocoder) return;
+
+      geocoder.geocode({ location: location }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const addressComponents = results[0].address_components || [];
+          let country = '';
+          let state = '';
+
+          for (let component of addressComponents) {
+            if (component.types.includes('country')) {
+              country = component.long_name;
+            }
+            if (component.types.includes('administrative_area_level_1')) {
+              state = component.long_name;
+            }
+          }
+
+          // Update the selects if we found values
+          if (country) {
+            let countryExists = false;
+            for (let i = 0; i < countrySelect.options.length; i++) {
+              if (countrySelect.options[i].text === country) {
+                countryExists = true;
+                break;
+              }
+            }
+
+            if (!countryExists) {
+              const option = document.createElement('option');
+              option.value = country;
+              option.text = country;
+              countrySelect.appendChild(option);
+            }
+
+            countrySelect.value = country;
+          }
+
+          if (state) {
+            let stateExists = false;
+            for (let i = 0; i < stateSelect.options.length; i++) {
+              if (stateSelect.options[i].text === state) {
+                stateExists = true;
+                break;
+              }
+            }
+
+            if (!stateExists) {
+              const option = document.createElement('option');
+              option.value = state;
+              option.text = state;
+              stateSelect.appendChild(option);
+            }
+
+            stateSelect.value = state;
+          }
+        }
+      });
+    }
+
+    // initialize map & places
+    function initMap(){
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat:19.0760, lng:72.8777 },
+        zoom: 11,
+        streetViewControl:false,
+        mapTypeControl:false,
+        fullscreenControl:true
+      });
+      placesService = new google.maps.places.PlacesService(map);
+      infoWindow = new google.maps.InfoWindow();
+      geocoder = new google.maps.Geocoder();
+
+      // autocomplete
+      const ac = new google.maps.places.Autocomplete(qInput, {
+        fields: ['geometry','formatted_address','name', 'address_components']
+      });
+      ac.bindTo('bounds', map);
+      ac.addListener('place_changed', () => {
+        const p = ac.getPlace();
+        if(p && p.geometry && p.geometry.location){
+          const loc = { lat: p.geometry.location.lat(), lng: p.geometry.location.lng() };
+          performNearbyAt(loc);
+          updateLocationDetails(loc);
+          // show user marker for this place (not real user but marker to indicate center)
+          showUserLocationMarker({ lat: loc.lat, lng: loc.lng, accuracy: 30 });
+        }
+      });
+
+      // nice: update bounds on resize
+      window.addEventListener('resize', ()=> {
+        if(map) {
+          google.maps.event.trigger(map, 'resize');
+          adjustAppTopSpacing();
+        }
+      });
+    }
+
+    // clear markers
+    function clearMarkers(){
+      markers.forEach(m => m.setMap(null));
+      markers = [];
+    }
+
+    // render results
+    function renderResults(list){
+      placesListEl.innerHTML = '';
+      clearMarkers();
+
+      if(!list || !list.length){
+        placesListEl.innerHTML = '<div class="status-message">No results found. Try a different location or category.</div>';
+        resultsCountEl.textContent = 0;
+        return;
+      }
+
+      // sort by distance if center available
+      if(currentCenter){
+        list.sort((a,b) => {
+          const da = distanceMeters(currentCenter.lat, currentCenter.lng, a.geometry.location.lat(), a.geometry.location.lng());
+          const db = distanceMeters(currentCenter.lat, currentCenter.lng, b.geometry.location.lat(), b.geometry.location.lng());
+          return da - db;
+        });
+      }
+
+      list.forEach(p => {
+        const lat = p.geometry.location.lat(), lng = p.geometry.location.lng();
+        const id = p.place_id || (p.name + '::' + lat.toFixed(6) + ',' + lng.toFixed(6));
+        // list item
+        const item = document.createElement('div');
+        item.className = 'place-item';
+        item.dataset.id = id;
+        item.innerHTML = `<div class="place-title">${esc(p.name)}</div><div class="place-sub">${esc(p.vicinity || p.formatted_address || '')}</div>`;
+        placesListEl.appendChild(item);
+
+        // marker
+        const marker = new google.maps.Marker({
+          position:{lat,lng},
+          map,
+          title: p.name,
+          animation: google.maps.Animation.DROP
+        });
+        marker._place = p;
+        markers.push(marker);
+
+        marker.addListener('click', ()=> {
+          const content = `<div style="min-width:220px"><strong>${esc(p.name)}</strong><div style="font-size:13px;color:#444">${esc(p.vicinity || p.formatted_address || '')}</div></div>`;
+          infoWindow.setContent(content);
+          infoWindow.open(map, marker);
+          document.querySelectorAll('.place-item').forEach(x=>x.classList.remove('active'));
+          item.classList.add('active');
+          item.scrollIntoView({ behavior:'smooth', block:'center' });
+        });
+
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.place-item').forEach(x=>x.classList.remove('active'));
+          item.classList.add('active');
+          map.panTo({ lat, lng });
+          map.setZoom(Math.max(map.getZoom(), 14));
+          google.maps.event.trigger(marker, 'click');
+          
+          // On mobile, automatically switch to map view when a place is selected
+          if (window.innerWidth <= 900) {
+            isMapView = true;
+            listPanel.classList.add('hidden');
+            mapPanel.classList.add('active');
+            toggleIcon.textContent = '📋';
+            viewToggle.setAttribute('title', 'Switch to List View');
+            
+            // Trigger map resize to ensure proper rendering
+            setTimeout(() => {
+              if (map) {
+                google.maps.event.trigger(map, 'resize');
+              }
+            }, 300);
+          }
+        });
+
+        // keyboard
+        item.tabIndex = 0;
+        item.addEventListener('keydown', ev => { if(ev.key === 'Enter' || ev.key===' '){ ev.preventDefault(); item.click(); } });
+
+        // actions - Updated with three buttons
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+
+        // Copy Coordinates Button
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'action-btn';
+        copyBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM8 21V7H19V21H8Z" fill="currentColor"/>
+          </svg>
+          Copy
+        `;
+        copyBtn.title = 'Copy coordinates to clipboard';
+        copyBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          copyCoordinates(lat, lng);
+        });
+
+        // Directions Button
+        const dirBtn = document.createElement('button');
+        dirBtn.className = 'action-btn';
+        dirBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="currentColor"/>
+          </svg>
+          Directions
+        `;
+        dirBtn.title = 'Get directions to this location';
+        dirBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          openDirectionsTo(lat, lng);
+        });
+
+        // Save Button
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'action-btn';
+        if(isSaved(id)) saveBtn.classList.add('saved');
+        saveBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17 3H7C5.9 3 5 3.9 5 5V21L12 18L19 21V5C19 3.9 18.1 3 17 3Z" fill="currentColor"/>
+          </svg>
+          ${isSaved(id) ? 'Saved' : 'Save'}
+        `;
+        saveBtn.title = isSaved(id) ? 'Remove from bookmarks' : 'Save to bookmarks';
+        saveBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          toggleSaved({ id, name: p.name, address: p.vicinity || p.formatted_address || '', lat, lng, place_id: p.place_id || null, time: Date.now() });
+          // update button state
+          if(isSaved(id)) {
+            saveBtn.classList.add('saved');
+            saveBtn.innerHTML = `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 3H7C5.9 3 5 3.9 5 5V21L12 18L19 21V5C19 3.9 18.1 3 17 3Z" fill="currentColor"/>
+              </svg>
+              Saved
+            `;
+            saveBtn.title = 'Remove from bookmarks';
+          } else {
+            saveBtn.classList.remove('saved');
+            saveBtn.innerHTML = `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 3H7C5.9 3 5 3.9 5 5V21L12 18L19 21V5C19 3.9 18.1 3 17 3Z" fill="currentColor"/>
+              </svg>
+              Save
+            `;
+            saveBtn.title = 'Save to bookmarks';
+          }
+          renderBookmarksList(); // update modal list if open
+        });
+
+        actions.appendChild(copyBtn);
+        actions.appendChild(dirBtn);
+        actions.appendChild(saveBtn);
+        item.appendChild(actions);
+      });
+
+      // fit to markers
+      if(markers.length){
+        const bounds = new google.maps.LatLngBounds();
+        markers.forEach(m => bounds.extend(m.getPosition()));
+        // if user marker exists, include it so view includes it
+        if(userMarker) bounds.extend(userMarker.getPosition());
+        map.fitBounds(bounds);
+      }
+      resultsCountEl.textContent = list.length;
+      // ensure map renders correctly after layout
+      setTimeout(()=> {
+        if(map) {
+          google.maps.event.trigger(map, 'resize');
+          adjustAppTopSpacing();
+        }
+      }, 220);
+    }
+
+    function distanceMeters(lat1, lon1, lat2, lon2){
+      const R = 6371000;
+      const toR = x => x * Math.PI/180;
+      const dLat = toR(lat2 - lat1);
+      const dLon = toR(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Nearby search aggregator
+async function performNearbyAt(center){
+  // remember center and ensure numeric lat/lng
+  currentCenter = { lat: Number(center.lat), lng: Number(center.lng) };
+  map.setCenter(currentCenter);
+  map.setZoom(13);
+
+  loadingIndicator.classList.add('active');
+  placesListEl.innerHTML = '';
+
+  // get radius at the start (meters)
+  const radius = getSelectedRadiusMeters();
+  aggregatedResults = [];
+  const seen = new Set();
+
+  // helper wrapper for nearbySearch
+  function nearby(req){
+    return new Promise(resolve => {
+      placesService.nearbySearch(req, (res, status) => {
+        if(status === google.maps.places.PlacesServiceStatus.OK && res) resolve(res);
+        else resolve([]);
+      });
+    });
+  }
+
+  // query each type (throttled)
+  for(const t of TYPES){
+    // ensure radius is passed explicitly here
+    const req = {
+      location: new google.maps.LatLng(currentCenter.lat, currentCenter.lng),
+      radius: radius,
+      type: t.key
+    };
+    const res = await nearby(req);
+    res.forEach(r => {
+      const uid = r.place_id || (r.name + '::' + r.geometry.location.lat().toFixed(6) + ',' + r.geometry.location.lng().toFixed(6));
+      if(seen.has(uid)) return;
+      seen.add(uid);
+      r.__category = t.label;
+      aggregatedResults.push(r);
+    });
+    // small throttle so we don't hit rate limits
+    await new Promise(r => setTimeout(r, 120));
+  }
+
+  // STRICTLY filter by selected radius (safety: sometimes places service returns results slightly outside)
+  if(currentCenter && radius > 0){
+    aggregatedResults = aggregatedResults.filter(r => {
+      try {
+        const plat = r.geometry.location.lat();
+        const plng = r.geometry.location.lng();
+        const d = distanceMeters(currentCenter.lat, currentCenter.lng, plat, plng);
+        return d <= radius + 1; // +1 meter tolerance
+      } catch (e) {
+        return false;
+      }
+    });
+  }
+
+  loadingIndicator.classList.remove('active');
+
+  // rebuild filters and render from the filtered list
+  buildFilterTabs(aggregatedResults);
+  renderResults(aggregatedResults);
+  showFilterBar(true);
+}
+ // --- end replace ---
+
+    // Search entry
+    function searchEntry(q){
+      if(!q || q.trim() === ''){
+        // use geolocation
+        // use enhanced sampler
+        (async ()=> {
+          try {
+            const settings = readLocationSettings();
+            showLocStatus(true, null, 0, settings.samples, 'Requesting permission');
+            const pos = await getCurrentLocationEnhanced({ samples: settings.samples, maxWaitMs: settings.maxWaitMs, desiredAccuracy: settings.desiredAccuracy, onSample: ({bestAccuracy,collected,target}) => showLocStatus(true,bestAccuracy,collected,target,'Collecting...') });
+            await performNearbyAt({ lat: pos.lat, lng: pos.lng });
+            updateLocationDetails({ lat: pos.lat, lng: pos.lng });
+            showLocStatus(false);
+          } catch(e){
+            alert('Could not access location. ' + e.message);
+          }
+        })();
+        return;
+      }
+
+      // resolve text to place then nearby
+      placesService.textSearch({ query: q }, (res, status) => {
+        if(status === google.maps.places.PlacesServiceStatus.OK && res && res.length){
+          const loc = res[0].geometry.location;
+          performNearbyAt({ lat: loc.lat(), lng: loc.lng() });
+          updateLocationDetails({ lat: loc.lat(), lng: loc.lng() });
+          showUserLocationMarker({ lat: loc.lat(), lng: loc.lng(), accuracy: 30 });
+        } else {
+          alert('Location not found. Try another query.');
+        }
+      });
+    }
+
+    // Directions helper
+    function openDirectionsTo(lat, lng){
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos => {
+          const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+          const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`;
+          window.open(url, '_blank');
+        }, () => {
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`;
+          window.open(url, '_blank');
+        }, { timeout:7000 });
+      } else {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}`, '_blank');
+      }
+    }
+
+    // Range helper
+    function getSelectedRadiusMeters(){
+      const r = document.querySelector('input[name="range"]:checked');
+      return (r ? parseInt(r.value,10) : 10) * 1000;
+    }
+
+    // Filter bar & tabs
+    function buildFilterTabs(results){
+      filterBar.innerHTML = '';
+      if(!results || !results.length){ showFilterBar(false); return; }
+      const counts = { All: results.length };
+      TYPES.forEach(t => counts[t.label] = 0);
+      results.forEach(r => { const c = r.__category || ''; if(c) counts[c] = (counts[c] || 0) + 1; });
+
+      // All tab
+      const all = document.createElement('button');
+      all.className = 'filter-tab active';
+      all.dataset.cat = 'All';
+      all.innerHTML = `<span>All</span><span class="filter-count"> (${counts.All})</span>`;
+      all.addEventListener('click', ()=> {
+        setActiveTab('All');
+        applyFilter('All');
+      });
+      filterBar.appendChild(all);
+
+      TYPES.forEach(t => {
+        const b = document.createElement('button');
+        b.className = 'filter-tab';
+        b.dataset.cat = t.label;
+        b.innerHTML = `<span>${t.label}</span><span class="filter-count"> (${counts[t.label] || 0})</span>`;
+        b.addEventListener('click', ()=> {
+          setActiveTab(t.label);
+          applyFilter(t.label);
+        });
+        filterBar.appendChild(b);
+      });
+
+      showFilterBar(true);
+    }
+
+    function setActiveTab(cat){
+      filterBar.querySelectorAll('.filter-tab').forEach(x => x.classList.toggle('active', x.dataset.cat === cat));
+      currentFilter = cat;
+    }
+
+    function applyFilter(cat){
+      if(!aggregatedResults) return;
+      if(cat === 'All') {
+        renderResults(aggregatedResults);
+      } else {
+        renderResults(aggregatedResults.filter(p => (p.__category || '') === cat));
+      }
+    }
+
+    // show/hide & position filter bar
+    function showFilterBar(show){
+      if(show){
+        filterBar.classList.add('show');
+        filterBar.setAttribute('aria-hidden','false');
+        positionFilterBar();
+      } else {
+        filterBar.classList.remove('show');
+        filterBar.setAttribute('aria-hidden','true');
+      }
+      adjustAppTopSpacing();
+    }
+
+    function positionFilterBar(){
+      const searchRect = searchCard.getBoundingClientRect();
+      const headerRect = headerEl.getBoundingClientRect();
+      if(searchCard.classList.contains('open') && searchRect.width > 10){
+        const top = window.pageYOffset + searchRect.bottom + 8;
+        filterBar.style.position = 'absolute';
+        filterBar.style.top = top + 'px';
+        filterBar.style.left = '50%';
+        filterBar.style.width = searchRect.width + 'px';
+        filterBar.style.transform = 'translateX(-50%)';
+      } else {
+        const top = window.pageYOffset + headerRect.bottom + 8;
+        filterBar.style.position = 'absolute';
+        filterBar.style.top = top + 'px';
+        filterBar.style.left = '50%';
+        filterBar.style.width = headerRect.width + 'px';
+        filterBar.style.transform = 'translateX(-50%)';
+      }
+    }
+
+    // Adjust app top spacing to prevent overlap
+    function adjustAppTopSpacing(){
+      const headerRect = headerEl.getBoundingClientRect();
+      const searchRect = searchCard.getBoundingClientRect();
+      const filterRect = filterBar.getBoundingClientRect();
+
+      let totalHeight = headerRect.height + 20; // Base padding
+
+      if (searchCard.classList.contains('open') && searchRect.height > 20) {
+        totalHeight += searchRect.height + 10;
+      }
+
+      if (filterBar.classList.contains('show') && filterRect.height > 0) {
+        totalHeight += filterRect.height + 10;
+      }
+
+      appMain.style.top = totalHeight + 'px';
+      appMain.style.height = 'calc(100vh - ' + totalHeight + 'px)';
+
+      setTimeout(()=> {
+        if(map) google.maps.event.trigger(map, 'resize');
+      }, 160);
+    }
+
+    // auto-hide header on scroll and reposition filter
+    window.addEventListener('scroll', () => {
+      const current = window.pageYOffset;
+      if(current > lastScroll + 5){ // scrolling down
+        headerEl.classList.add('hidden');
+      } else if(current < lastScroll - 5){ // scrolling up
+        headerEl.classList.remove('hidden');
+      }
+      lastScroll = current <= 0 ? 0 : current;
+      if(filterBar.classList.contains('show')) positionFilterBar();
+    }, { passive:true });
+
+    window.addEventListener('resize', () => {
+      positionFilterBar();
+      adjustAppTopSpacing();
+      
+      // On desktop, ensure both panels are visible
+      if (window.innerWidth > 900) {
+        listPanel.classList.remove('hidden');
+        mapPanel.classList.remove('active');
+        isMapView = false;
+        toggleIcon.textContent = '🗺️';
+        viewToggle.setAttribute('title', 'Switch to Map View');
+      }
+    });
+
+    // wire search button and enter key
+    doSearchBtn.addEventListener('click', () => { searchEntry(qInput.value.trim()); });
+    qInput.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); doSearchBtn.click(); } });
+
+    // saved load
+    loadSaved();
+
+    // init after load
+    window.addEventListener('load', () => {
+      if(!window.google || !google.maps){ alert('Google Maps failed to load — insert a valid API key'); return; }
+      initMap();
+      // pre-position & spacing
+      adjustAppTopSpacing();
+      renderBookmarksList();
+    });
+
+    //
+    // Bookmarks modal handling
+    //
+    function openBookmarksModal(){
+      bookmarksModal.classList.add('open');
+      bookmarksModal.setAttribute('aria-hidden','false');
+      renderBookmarksList();
+    }
+    function closeBookmarksModal(){
+      bookmarksModal.classList.remove('open');
+      bookmarksModal.setAttribute('aria-hidden','true');
+    }
+    function renderBookmarksList(){
+      loadSaved();
+      bookmarksList.innerHTML = '';
+      if(!saved || !saved.length){
+        bookmarksList.innerHTML = '<div class="status-message">No bookmarks saved yet.</div>';
+        return;
+      }
+      saved.slice().reverse().forEach(item=>{
+        const el = document.createElement('div');
+        el.className = 'bookmark-item';
+        el.innerHTML = `
+          <div class="meta">
+            <div style="font-weight:600">${esc(item.name)}</div>
+            <div style="font-size:13px;color:#666">${esc(item.address || '')}</div>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button class="small-btn goto">Go</button>
+            <button class="small-btn remove">Remove</button>
+          </div>
+        `;
+        const gotoBtn = el.querySelector('.goto');
+        const removeBtn = el.querySelector('.remove');
+        gotoBtn.addEventListener('click', () => {
+          closeBookmarksModal();
+          map.panTo({ lat: item.lat, lng: item.lng });
+          map.setZoom(15);
+          // run a nearby search at that location
+          performNearbyAt({ lat: item.lat, lng: item.lng });
+          
+          // On mobile, automatically switch to map view
+          if (window.innerWidth <= 900) {
+            isMapView = true;
+            listPanel.classList.add('hidden');
+            mapPanel.classList.add('active');
+            toggleIcon.textContent = '📋';
+            viewToggle.setAttribute('title', 'Switch to List View');
+            
+            // Trigger map resize to ensure proper rendering
+            setTimeout(() => {
+              if (map) {
+                google.maps.event.trigger(map, 'resize');
+              }
+            }, 300);
+          }
+        });
+        removeBtn.addEventListener('click', () => {
+          const idx = saved.findIndex(s=>s.id===item.id);
+          if(idx>=0) saved.splice(idx,1);
+          persistSaved();
+          renderBookmarksList();
+        });
+        bookmarksList.appendChild(el);
+      });
+    }
+    closeBookmarks.addEventListener('click', closeBookmarksModal);
+    clearBookmarks.addEventListener('click', () => {
+      if(!confirm('Clear all bookmarks?')) return;
+      saved = [];
+      persistSaved();
+      renderBookmarksList();
+    });
+
+    //
+    // Settings modal handling
+    //
+    function openSettingsModal(){
+      settingsModal.classList.add('open');
+      settingsModal.setAttribute('aria-hidden','false');
+      // populate settings UI from defaults (if you want to persist, add logic to save/load)
+      // Currently values are already in inputs; we could load from localStorage if desired
+    }
+    function closeSettingsModal(){
+      settingsModal.classList.remove('open');
+      settingsModal.setAttribute('aria-hidden','true');
+    }
+    closeSettings.addEventListener('click', closeSettingsModal);
+    saveSettingsBtn.addEventListener('click', () => {
+      // simple validation
+      const d = Math.max(1, Number(settingDesiredAccuracy.value || 20));
+      const s = Math.max(1, parseInt(settingSamples.value || 6, 10));
+      const m = Math.max(1000, parseInt(settingMaxWait.value || 15000, 10));
+      settingDesiredAccuracy.value = d;
+      settingSamples.value = s;
+      settingMaxWait.value = m;
+      // optionally persist settings to localStorage if you want
+      try {
+        localStorage.setItem('lf_loc_settings', JSON.stringify({ desiredAccuracy: d, samples: s, maxWait: m }));
+      } catch(e){}
+      closeSettingsModal();
+    });
+
+    // load persisted settings if present
+    (function loadPersistedSettings(){
+      try {
+        const raw = localStorage.getItem('lf_loc_settings');
+        if(raw){
+          const obj = JSON.parse(raw);
+          if(obj.desiredAccuracy) settingDesiredAccuracy.value = obj.desiredAccuracy;
+          if(obj.samples) settingSamples.value = obj.samples;
+          if(obj.maxWait) settingMaxWait.value = obj.maxWait;
+        }
+      } catch(e){}
+    })();
+
+    // menu items wired
+    settingsItem.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.remove('open'); menuOpen=false; menuBtn.setAttribute('aria-expanded','false'); openSettingsModal(); });
+    bookmarkItem.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.remove('open'); menuOpen=false; menuBtn.setAttribute('aria-expanded','false'); openBookmarksModal(); });
+
+    // click / keyboard friendly on menu items
+    [settingsItem, bookmarkItem].forEach(it => {
+      it.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); it.click(); } });
+    });
+
+    //
+    // utility: close modals when clicking outside
+    //
+    bookmarksModal.addEventListener('click', (ev) => { if(ev.target === bookmarksModal) closeBookmarksModal(); });
+    settingsModal.addEventListener('click', (ev) => { if(ev.target === settingsModal) closeSettingsModal(); });
+
+    // render bookmarks small updates when saved changed
+    function onSavedChanged() { renderBookmarksList(); }
+
+    // expose persist hook by overriding toggleSaved (to ensure UI updates)
+    const originalToggleSaved = toggleSaved;
+    toggleSaved = function(obj) { originalToggleSaved(obj); onSavedChanged(); };
+
+    //
+    // End bookmarks/settings
+    //
+
+  })();
+  </script>
+</body>
+</html>
