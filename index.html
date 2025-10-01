@@ -70,7 +70,35 @@
     .menu-icon::before, .menu-icon::after, .menu-icon span{ content:""; position:absolute; left:0; right:0; height:2px; background:var(--brand); border-radius:2px; }
     .menu-icon::before{ top:0 } .menu-icon span{ top:6px } .menu-icon::after{ bottom:0 }
 
-    .logo { height:34px; user-select:none; pointer-events:none; z-index:1200; font-weight:600; color:var(--brand); }
+    /* Updated logo styles */
+    .logo { 
+      display: flex; 
+      align-items: center; 
+      gap: 10px; 
+      user-select: none; 
+      pointer-events: none; 
+      z-index: 1200; 
+    }
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+    .logo-title {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--brand);
+    }
+    .logo-tagline {
+      font-size: 10px;
+      color: #6c757d;
+      font-weight: 500;
+    }
 
     .header-right { position:absolute; right:18px; top:50%; transform:translateY(-50%); display:flex; gap:8px; align-items:center; z-index:1300; }
     .search-btn{ width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background: rgba(255,255,255,0.6); border:2px solid transparent; cursor:pointer; }
@@ -357,6 +385,18 @@
       .filter-bar { width: calc(98% - 20px); left:50%; transform:translateX(-50%); flex-wrap: wrap; justify-content: center; }
       .options { grid-template-columns: 1fr 1fr; }
       .loc-status { left: 12px; top: 62px; }
+      
+      /* Responsive logo for mobile */
+      .logo-icon {
+        width: 24px;
+        height: 24px;
+      }
+      .logo-title {
+        font-size: 16px;
+      }
+      .logo-tagline {
+        font-size: 9px;
+      }
     }
 
     @media (max-width: 600px) {
@@ -411,7 +451,18 @@
       </nav>
     </div>
 
-    <div class="logo">Local Finder</div>
+    <div class="logo">
+      <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#284b63"/>
+        <circle cx="12" cy="9" r="3" fill="white"/>
+        <circle cx="17" cy="5" r="2" fill="#ff6b6b"/>
+        <path d="M21 21L16.65 16.65" stroke="#284b63" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-title">Local Finder</div>
+        <div class="logo-tagline">Nearby places, smarter</div>
+      </div>
+    </div>
 
     <div class="header-right">
       <button class="search-btn" id="searchBtn" aria-expanded="false" title="Advanced Search">
@@ -440,6 +491,8 @@
           <label for="country">Country</label>
           <select id="country">
             <option value="">Any Country</option>
+            <option value="">India</option>
+            <option value="">Australia</option>
           </select>
         </div>
         <div class="field">
@@ -504,7 +557,7 @@
 
     <!-- View toggle button for mobile -->
     <button class="view-toggle" id="viewToggle" title="Switch View">
-      <span id="toggleIcon">🗺️</span>
+      <img id="toggleIcon" src="map.png" alt="Switch View" width="24" height="24">
     </button>
   </main>
 
@@ -644,7 +697,7 @@
         // Show map, hide list
         listPanel.classList.add('hidden');
         mapPanel.classList.add('active');
-        toggleIcon.textContent = '📋';
+        toggleIcon.src = 'list.png';
         viewToggle.setAttribute('title', 'Switch to List View');
         
         // Trigger map resize to ensure proper rendering
@@ -657,7 +710,7 @@
         // Show list, hide map
         listPanel.classList.remove('hidden');
         mapPanel.classList.remove('active');
-        toggleIcon.textContent = '🗺️';
+        toggleIcon.src = 'map.png';
         viewToggle.setAttribute('title', 'Switch to Map View');
       }
     }
@@ -1108,7 +1161,7 @@
             isMapView = true;
             listPanel.classList.add('hidden');
             mapPanel.classList.add('active');
-            toggleIcon.textContent = '📋';
+            toggleIcon.src = 'list.png';
             viewToggle.setAttribute('title', 'Switch to List View');
             
             // Trigger map resize to ensure proper rendering
@@ -1478,7 +1531,7 @@ async function performNearbyAt(center){
         listPanel.classList.remove('hidden');
         mapPanel.classList.remove('active');
         isMapView = false;
-        toggleIcon.textContent = '🗺️';
+        toggleIcon.src = 'map.png';
         viewToggle.setAttribute('title', 'Switch to Map View');
       }
     });
@@ -1545,7 +1598,7 @@ async function performNearbyAt(center){
             isMapView = true;
             listPanel.classList.add('hidden');
             mapPanel.classList.add('active');
-            toggleIcon.textContent = '📋';
+            toggleIcon.src = 'list.png';
             viewToggle.setAttribute('title', 'Switch to List View');
             
             // Trigger map resize to ensure proper rendering
